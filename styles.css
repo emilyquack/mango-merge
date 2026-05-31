@@ -47,6 +47,8 @@ h1 { margin: 0; color: var(--leaf-dark); font-size: clamp(42px, 7vw, 76px); line
 }
 .primary-btn { background: linear-gradient(180deg, #ffce66, #ff9d3c); color: #593312; }
 .soft-btn { background: #fff8d6; color: #5a7434; border: 2px solid #f2d574; }
+.soft-btn[aria-pressed="true"] { background: #e9fff8; border-color: #86e5ce; color: #357763; }
+button:disabled { opacity: .45; cursor: not-allowed; }
 .game-layout { display: grid; grid-template-columns: 270px minmax(320px, 1fr) 270px; gap: 18px; margin-top: 20px; align-items: start; }
 .mascot-panel, .board-card, .guide-card {
   border-radius: var(--radius); background: var(--panel); border: 3px solid rgba(255,255,255,.72); box-shadow: var(--shadow);
@@ -79,6 +81,14 @@ h1 { margin: 0; color: var(--leaf-dark); font-size: clamp(42px, 7vw, 76px); line
   transition: transform .12s ease, background .12s ease;
 }
 .cell.filled { background: linear-gradient(180deg, #fffbe0, #ffe6a9); box-shadow: inset 0 -5px 0 rgba(174,112,43,.08), 0 7px 13px rgba(89,113,46,.12); }
+.cell.fruit-1 { background: linear-gradient(180deg, #ffe1ea, #ff9db8); }
+.cell.fruit-2 { background: linear-gradient(180deg, #ffe7b8, #ffad4a); }
+.cell.fruit-3 { background: linear-gradient(180deg, #fff8b6, #ffe15a); }
+.cell.fruit-4 { background: linear-gradient(180deg, #eadcff, #c09cff); }
+.cell.fruit-5 { background: linear-gradient(180deg, #dfffc8, #91db76); }
+.cell.fruit-6 { background: linear-gradient(180deg, #fff7e9, #d8a878); }
+.cell.fruit-7 { background: linear-gradient(180deg, #fff7a6, #ffc857); }
+.cell.fruit-8 { background: linear-gradient(180deg, #ffe8a3, #ff9a4d); }
 .cell.pop { animation: pop .18s ease; }
 @keyframes pop { 50% { transform: scale(1.08); } }
 .mobile-controls { display:none; text-align:center; margin-top: 14px; }
@@ -86,7 +96,8 @@ h1 { margin: 0; color: var(--leaf-dark); font-size: clamp(42px, 7vw, 76px); line
 .guide-card { padding: 20px; }
 .guide-card h2 { margin: 0 0 10px; color: var(--leaf-dark); font-size: 28px; }
 ol { padding-left: 22px; line-height: 1.55; font-weight: 700; }
-.fruit-chain { display:flex; flex-wrap: wrap; gap: 6px; justify-content:center; align-items:center; margin-top: 16px; font-size: 26px; background:rgba(255,255,255,.5); border-radius:20px; padding:12px; }
+.fruit-chain { display:flex; flex-wrap: wrap; gap: 6px; justify-content:center; align-items:center; margin-top: 16px; font-size: 24px; background:rgba(255,255,255,.5); border-radius:20px; padding:12px; }
+.fruit-chain span { display:inline-grid; place-items:center; min-width: 20px; }
 .tutorial { position: fixed; inset: 0; display:grid; place-items:center; background: rgba(57, 88, 38, .38); z-index: 20; padding: 18px; }
 .hidden { display:none !important; }
 .tutorial-card { position:relative; display:grid; grid-template-columns: 250px minmax(280px, 520px); gap: 18px; align-items:center; background: #fffdf1; border: 4px solid #fff; border-radius: 34px; padding: 24px; box-shadow: 0 30px 80px rgba(41,70,28,.34); }

@@ -1,23 +1,87 @@
-const fruits = [null, '🍒', '🍓', '🥝', '🥥', '🥭'];
-const names = ['', 'Cherry', 'Strawberry', 'Kiwi', 'Coconut', 'Mango'];
+const fruits = [null, '🍓', '🍊', '🍋', '🍇', '🍉', '🥥', '🍍', '🥭'];
+const names = ['', 'Strawberry', 'Orange', 'Lemon', 'Grape', 'Watermelon', 'Coconut', 'Pineapple', 'Mango'];
+const targetFruit = fruits.length - 1;
+
 let board = Array(16).fill(0);
 let score = 0;
 let won = false;
+
 const bestKey = 'mangoMergeBest';
+const soundKey = 'mangoMergeSound';
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
 const boardEl = document.getElementById('board');
 const toastEl = document.getElementById('toast');
 const mangoSpeech = document.getElementById('mangoSpeech');
 const catSpeech = document.getElementById('catSpeech');
+const soundBtn = document.getElementById('soundBtn');
 
 const tips = [
   'Meow tip: keep your biggest fruit cozy in a corner. 🐾',
-  'Meow tip: try not to scatter coconuts everywhere!',
-  'Meow tip: if the board feels crowded, make tiny merges first.',
-  'Meow tip: two 🥥 coconuts make the dream — 🥭 mango!'
+  'Meow tip: strawberries and oranges are your combo starters. 🍓🍊',
+  'Meow tip: lemons and grapes merge best when you keep a tidy lane. 🍋🍇',
+  'Meow tip: protect your coconut — it is on the way to pineapple! 🥥',
+  'Meow tip: two 🍍 pineapples make the dream — 🥭 Mango!'
 ];
 let tipIndex = 0;
+
+let audioCtx = null;
+let soundEnabled = localStorage.getItem(soundKey) !== 'off';
+
+function updateSoundButton() {
+  soundBtn.textContent = soundEnabled ? 'Sound: On 🔊' : 'Sound: Off 🔇';
+  soundBtn.setAttribute('aria-pressed', String(soundEnabled));
+}
+
+function initAudio() {
+  if (!soundEnabled) return null;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function tone(freq, duration = 0.12, type = 'sine', delay = 0, gain = 0.055) {
+  const ctx = initAudio();
+  if (!ctx) return;
+  const start = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  const amp = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  amp.gain.setValueAtTime(0.0001, start);
+  amp.gain.exponentialRampToValueAtTime(gain, start + 0.015);
+  amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  osc.connect(amp);
+  amp.connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + duration + 0.03);
+}
+
+function sparkle(base = 660) {
+  tone(base, 0.08, 'triangle', 0, 0.045);
+  tone(base * 1.25, 0.09, 'sine', 0.07, 0.04);
+  tone(base * 1.5, 0.10, 'triangle', 0.14, 0.035);
+}
+
+function sfx(name, level = 1) {
+  if (!soundEnabled) return;
+  const pitch = 1 + Math.min(level, targetFruit) * 0.055;
+  if (name === 'button') sparkle(620);
+  if (name === 'new') { tone(523, .10, 'triangle', 0); tone(659, .10, 'triangle', .08); tone(784, .12, 'sine', .17); }
+  if (name === 'move') { tone(392, .055, 'triangle', 0, .035); tone(523, .065, 'triangle', .055, .03); }
+  if (name === 'invalid') { tone(220, .08, 'sine', 0, .035); tone(196, .10, 'sine', .08, .025); }
+  if (name === 'merge') sparkle(520 * pitch);
+  if (name === 'bigMerge') { sparkle(680 * pitch); tone(1046, .14, 'sine', .22, .04); }
+  if (name === 'win') {
+    [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .13, i % 2 ? 'sine' : 'triangle', i * .09, .052));
+    tone(1568, .26, 'sine', .48, .04);
+  }
+  if (name === 'gameover') { [392, 330, 262].forEach((f, i) => tone(f, .16, 'sine', i * .13, .04)); }
+  if (name === 'tutorial') sparkle(740);
+  if (name === 'close') { tone(784, .07, 'triangle', 0, .035); tone(523, .10, 'sine', .07, .03); }
+}
 
 function best(){ return Number(localStorage.getItem(bestKey) || 0); }
 function setBest(v){ localStorage.setItem(bestKey, String(v)); }
@@ -26,14 +90,15 @@ function addRandomFruit(){
   const cells = emptyCells();
   if (!cells.length) return;
   const idx = cells[Math.floor(Math.random()*cells.length)];
-  board[idx] = Math.random() < 0.86 ? 1 : 2;
+  board[idx] = Math.random() < 0.86 ? 1 : 2; // mostly strawberries, sometimes oranges
 }
-function newGame(){
+function newGame(playSound = true){
   board = Array(16).fill(0); score = 0; won = false;
   addRandomFruit(); addRandomFruit();
-  mangoSpeech.textContent = 'Fresh board! Match fruits until you grow a mango. 🥭';
+  mangoSpeech.textContent = 'Fresh board! Follow the Discord fruit chain and grow a mango. 🥭';
   catSpeech.textContent = tips[0];
   render();
+  if (playSound) sfx('new');
 }
 function render(popIndexes=[]){
   scoreEl.textContent = score;
@@ -42,7 +107,7 @@ function render(popIndexes=[]){
   boardEl.innerHTML = '';
   board.forEach((v,i)=>{
     const cell = document.createElement('div');
-    cell.className = 'cell' + (v ? ' filled' : '') + (popIndexes.includes(i) ? ' pop' : '');
+    cell.className = 'cell' + (v ? ' filled fruit-' + v : '') + (popIndexes.includes(i) ? ' pop' : '');
     cell.setAttribute('role','gridcell');
     cell.setAttribute('aria-label', v ? names[v] : 'empty');
     cell.textContent = fruits[v] || '';
@@ -52,16 +117,17 @@ function render(popIndexes=[]){
 function slideLine(line){
   const nonzero = line.filter(Boolean);
   const out = [];
+  const mergedValues = [];
   let gained = 0;
   let merged = false;
   for (let i=0; i<nonzero.length; i++) {
     if (nonzero[i] === nonzero[i+1]) {
-      const nv = Math.min(nonzero[i]+1, fruits.length-1);
-      out.push(nv); gained += nv * 10; merged = true; i++;
+      const nv = Math.min(nonzero[i]+1, targetFruit);
+      out.push(nv); gained += nv * 20; merged = true; mergedValues.push(nv); i++;
     } else out.push(nonzero[i]);
   }
   while(out.length < 4) out.push(0);
-  return { line: out, gained, merged };
+  return { line: out, gained, merged, mergedValues };
 }
 function getLine(dir, n){
   const arr = [];
@@ -87,31 +153,42 @@ function move(dir){
   const before = board.join(',');
   let gained = 0;
   let anyMerged = false;
+  let biggestMerge = 0;
+  const popIndexes = [];
   const next = board.slice();
   for (let n=0;n<4;n++) {
     const idxs = getLine(dir,n);
     const vals = idxs.map(i=>board[i]);
     const res = slideLine(vals);
     gained += res.gained; anyMerged ||= res.merged;
-    idxs.forEach((idx,k)=> next[idx]=res.line[k]);
+    biggestMerge = Math.max(biggestMerge, ...res.mergedValues, 0);
+    idxs.forEach((idx,k)=> {
+      next[idx]=res.line[k];
+      if (res.mergedValues.includes(res.line[k])) popIndexes.push(idx);
+    });
   }
   board = next;
-  if (board.join(',') === before) return;
+  if (board.join(',') === before) { sfx('invalid'); return; }
   score += gained;
   addRandomFruit();
   if (anyMerged) {
     tipIndex = (tipIndex + 1) % tips.length;
     catSpeech.textContent = tips[tipIndex];
-    mangoSpeech.textContent = gained ? `Yay! +${gained} points. Keep merging! ✨` : 'Nice move!';
+    mangoSpeech.textContent = gained ? `Cute combo! +${gained} points. ✨` : 'Nice move!';
+    sfx(biggestMerge >= 6 ? 'bigMerge' : 'merge', biggestMerge);
+  } else {
+    sfx('move');
   }
-  render();
-  if (!won && board.includes(5)) {
+  render(popIndexes);
+  if (!won && board.includes(targetFruit)) {
     won = true;
     showToast('You made a Mango! You win! 🥭✨');
     mangoSpeech.textContent = 'You made a juicy mango! I’m so proud! 🥭';
+    sfx('win');
   } else if (!canMove()) {
     showToast('No more moves — try a fresh orchard!');
     mangoSpeech.textContent = 'That orchard is full! New game?';
+    sfx('gameover');
   }
 }
 function showToast(msg){
@@ -123,10 +200,16 @@ function showToast(msg){
 document.addEventListener('keydown', e=>{
   const map = {ArrowLeft:'left', ArrowRight:'right', ArrowUp:'up', ArrowDown:'down', a:'left', d:'right', w:'up', s:'down'};
   const dir = map[e.key];
-  if (dir) { e.preventDefault(); move(dir); }
+  if (dir) { e.preventDefault(); initAudio(); move(dir); }
 });
-document.querySelectorAll('[data-move]').forEach(btn => btn.addEventListener('click', () => move(btn.dataset.move)));
-document.getElementById('newGameBtn').addEventListener('click', newGame);
+document.querySelectorAll('[data-move]').forEach(btn => btn.addEventListener('click', () => { initAudio(); move(btn.dataset.move); }));
+document.getElementById('newGameBtn').addEventListener('click', () => { initAudio(); newGame(true); });
+soundBtn.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem(soundKey, soundEnabled ? 'on' : 'off');
+  updateSoundButton();
+  if (soundEnabled) sfx('button');
+});
 
 let touchStart = null;
 boardEl.addEventListener('pointerdown', e => { touchStart = {x:e.clientX, y:e.clientY}; });
@@ -135,6 +218,7 @@ boardEl.addEventListener('pointerup', e => {
   const dx=e.clientX-touchStart.x, dy=e.clientY-touchStart.y;
   touchStart = null;
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 25) return;
+  initAudio();
   move(Math.abs(dx) > Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
 });
 
@@ -144,15 +228,15 @@ const tutorialSpeaker = document.getElementById('tutorialSpeaker');
 const tutorialTitle = document.getElementById('tutorialTitle');
 const tutorialText = document.getElementById('tutorialText');
 const steps = [
-  {who:'Mango says', img:'assets/mango.svg', title:'Welcome to Mango Merge!', text:'I’m Mango! Merge matching fruits until you make a juicy mango.'},
+  {who:'Mango says', img:'assets/mango.svg', title:'Welcome to Mango Merge!', text:'I’m Mango! Merge fruits until you make a juicy mango — with sparkly cute sounds!'},
   {who:'Mango says', img:'assets/mango.svg', title:'Move the whole board', text:'Use arrow keys, WASD, the buttons, or swipe. Every fruit slides together.'},
-  {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Meow Tip!', text:'Two matching fruits become the next fruit. Cherry to strawberry, strawberry to kiwi, kiwi to coconut, coconut to mango!'},
-  {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Cozy corner strategy', text:'Try keeping your biggest fruit in one corner so combos are easier to plan.'},
-  {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Let’s merge some fruit!'}
+  {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Meow Tip!', text:'The chain is strawberry → orange → lemon → grape → watermelon → coconut → pineapple → mango.'},
+  {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Cozy corner strategy', text:'Try keeping your biggest fruit in one corner so pineapple and mango combos are easier to plan.'},
+  {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Turn sound on, make tiny combos, and let’s merge some fruit!'}
 ];
 let step = 0;
-function openTutorial(){ step=0; tutorial.classList.remove('hidden'); renderStep(); }
-function closeTutorial(){ tutorial.classList.add('hidden'); localStorage.setItem('mangoMergeTutorialSeen','yes'); }
+function openTutorial(){ initAudio(); sfx('tutorial'); step=0; tutorial.classList.remove('hidden'); renderStep(); }
+function closeTutorial(){ sfx('close'); tutorial.classList.add('hidden'); localStorage.setItem('mangoMergeTutorialSeen','yes'); }
 function renderStep(){
   const s=steps[step]; tutorialMascot.src=s.img; tutorialSpeaker.textContent=s.who; tutorialTitle.textContent=s.title; tutorialText.textContent=s.text;
   document.getElementById('prevStep').disabled = step===0;
@@ -160,8 +244,9 @@ function renderStep(){
 }
 document.getElementById('helpBtn').addEventListener('click', openTutorial);
 document.getElementById('closeTutorial').addEventListener('click', closeTutorial);
-document.getElementById('prevStep').addEventListener('click', ()=>{ if(step>0){step--; renderStep();} });
-document.getElementById('nextStep').addEventListener('click', ()=>{ if(step<steps.length-1){step++; renderStep();} else closeTutorial(); });
+document.getElementById('prevStep').addEventListener('click', ()=>{ if(step>0){ sfx('button'); step--; renderStep();} else sfx('invalid'); });
+document.getElementById('nextStep').addEventListener('click', ()=>{ if(step<steps.length-1){ sfx('button'); step++; renderStep();} else closeTutorial(); });
 
-newGame();
-if (!localStorage.getItem('mangoMergeTutorialSeen')) setTimeout(openTutorial, 450);
+updateSoundButton();
+newGame(false);
+if (!localStorage.getItem('mangoMergeTutorialSeen')) setTimeout(() => { step=0; tutorial.classList.remove('hidden'); renderStep(); }, 450);
