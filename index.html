@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mango Merge</title>
+  <meta name="description" content="A cute pastel fruit merge game with Mango and Kiwi the Cat." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="orchard-bg" aria-hidden="true"></div>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">🥭 cute fruit puzzle</p>
+        <h1>Mango Merge</h1>
+        <p class="tagline">Merge matching fruits, climb the fruit chain, and make a juicy mango!</p>
+      </div>
+      <div class="hero-actions">
+        <button id="helpBtn" class="soft-btn">Tutorial</button>
+        <button id="newGameBtn" class="primary-btn">New Game</button>
+      </div>
+    </header>
+
+    <section class="game-layout" aria-label="Mango Merge game">
+      <aside class="mascot-panel">
+        <img src="assets/mango.svg" alt="Mango mascot" class="mascot mango-mascot" />
+        <div class="speech mango-speech" id="mangoSpeech">Hi! I’m Mango. Use arrow keys, WASD, or swipe to merge fruit!</div>
+        <img src="assets/kiwi-cat.svg" alt="Kiwi the Cat mascot" class="mascot kiwi-mascot" />
+        <div class="speech cat-speech" id="catSpeech">Meow tip: keep your biggest fruit cozy in a corner. 🐾</div>
+      </aside>
+
+      <section class="board-card">
+        <div class="stats-row">
+          <div class="stat"><span>Score</span><strong id="score">0</strong></div>
+          <div class="stat"><span>Best</span><strong id="best">0</strong></div>
+          <div class="stat goal"><span>Goal</span><strong>🥭 Mango</strong></div>
+        </div>
+        <div id="board" class="board" role="grid" aria-label="Fruit merge board"></div>
+        <div class="mobile-controls" aria-label="Move controls">
+          <button data-move="up">↑</button>
+          <div><button data-move="left">←</button><button data-move="down">↓</button><button data-move="right">→</button></div>
+        </div>
+      </section>
+
+      <aside class="guide-card">
+        <h2>How to play</h2>
+        <ol>
+          <li>Move all fruits with arrow keys, WASD, buttons, or swipes.</li>
+          <li>Two matching fruits merge into the next fruit.</li>
+          <li>Reach 🥭 Mango to win!</li>
+        </ol>
+        <div class="fruit-chain" aria-label="Fruit merge chain">
+          <span>🍒</span><span>→</span><span>🍓</span><span>→</span><span>🥝</span><span>→</span><span>🥥</span><span>→</span><span>🥭</span>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div id="tutorial" class="tutorial hidden" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
+    <div class="tutorial-card">
+      <button id="closeTutorial" class="close-btn" aria-label="Close tutorial">×</button>
+      <div class="tutorial-art">
+        <img id="tutorialMascot" src="assets/mango.svg" alt="Tutorial mascot" />
+      </div>
+      <div class="tutorial-copy">
+        <p class="eyebrow" id="tutorialSpeaker">Mango says</p>
+        <h2 id="tutorialTitle">Welcome to Mango Merge!</h2>
+        <p id="tutorialText">Merge fruits until you make a mango. I’ll show you how!</p>
+        <div class="tutorial-buttons">
+          <button id="prevStep" class="soft-btn">Back</button>
+          <button id="nextStep" class="primary-btn">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

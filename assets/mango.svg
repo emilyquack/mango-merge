@@ -1,0 +1,65 @@
+<svg width="320" height="360" viewBox="0 0 320 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Chibi Mango mascot with a pink ribbon waving">
+  <defs>
+    <radialGradient id="mangoSkin" cx="42%" cy="34%" r="70%">
+      <stop offset="0%" stop-color="#FFF5A8"/>
+      <stop offset="45%" stop-color="#FFD35A"/>
+      <stop offset="78%" stop-color="#F99A3E"/>
+      <stop offset="100%" stop-color="#F06F35"/>
+    </radialGradient>
+    <linearGradient id="mangoGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B9E784"/>
+      <stop offset="1" stop-color="#6FB65B"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#B56B2A" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)">
+    <!-- waving arm behind mango -->
+    <g class="wave-arm" transform-origin="238 150">
+      <path d="M230 180 C265 156 267 116 244 98" fill="none" stroke="#E88E37" stroke-width="17" stroke-linecap="round"/>
+      <circle cx="241" cy="94" r="15" fill="#FFD35A" stroke="#D9782D" stroke-width="5"/>
+      <path d="M235 87 Q241 78 249 88" fill="none" stroke="#8A4A1F" stroke-width="3" stroke-linecap="round"/>
+    </g>
+
+    <!-- mango body: pear/mango shape, not circle -->
+    <path d="M149 42
+             C95 48 56 98 54 163
+             C51 245 99 312 165 314
+             C229 316 272 258 268 180
+             C264 105 214 38 149 42Z"
+          fill="url(#mangoSkin)" stroke="#D9782D" stroke-width="7" stroke-linejoin="round"/>
+
+    <!-- green shoulder patch to read more mango-like -->
+    <path d="M82 124 C91 76 125 50 164 46 C128 58 103 87 94 133Z" fill="url(#mangoGreen)" opacity="0.5"/>
+
+    <!-- stem and leaf -->
+    <path d="M151 47 C156 26 172 18 190 18" fill="none" stroke="#7B4A24" stroke-width="9" stroke-linecap="round"/>
+    <path d="M190 18 C221 12 238 29 239 54 C212 58 195 45 190 18Z" fill="#8ED36E" stroke="#4B9B45" stroke-width="5"/>
+    <path d="M194 22 C210 31 223 39 235 51" fill="none" stroke="#4B9B45" stroke-width="3" opacity=".75"/>
+
+    <!-- ear-area bow/ribbon -->
+    <g transform="translate(220 70) rotate(17)">
+      <path d="M0 16 C-28 -5 -45 9 -38 31 C-22 30 -10 24 0 16Z" fill="#FFB7D8" stroke="#E86BA7" stroke-width="4"/>
+      <path d="M12 15 C35 -7 53 7 47 31 C29 31 20 24 12 15Z" fill="#FFB7D8" stroke="#E86BA7" stroke-width="4"/>
+      <circle cx="6" cy="17" r="12" fill="#FF7EBB" stroke="#E86BA7" stroke-width="4"/>
+      <path d="M-24 11 C-15 16 -10 20 -5 26" stroke="#FFE6F1" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+      <path d="M31 10 C24 16 20 21 17 27" stroke="#FFE6F1" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+    </g>
+
+    <!-- face -->
+    <ellipse cx="125" cy="171" rx="14" ry="20" fill="#623A20"/>
+    <ellipse cx="197" cy="171" rx="14" ry="20" fill="#623A20"/>
+    <circle cx="120" cy="164" r="5" fill="#FFF9E8"/>
+    <circle cx="192" cy="164" r="5" fill="#FFF9E8"/>
+    <ellipse cx="104" cy="205" rx="21" ry="9" fill="#FF9DB5" opacity="0.8"/>
+    <ellipse cx="216" cy="205" rx="21" ry="9" fill="#FF9DB5" opacity="0.8"/>
+    <path d="M143 202 C152 219 171 219 181 202" fill="none" stroke="#623A20" stroke-width="6" stroke-linecap="round"/>
+    <path d="M156 213 Q162 220 169 213" stroke="#E46D78" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- little feet -->
+    <ellipse cx="128" cy="314" rx="28" ry="13" fill="#D9782D" opacity=".75"/>
+    <ellipse cx="196" cy="314" rx="28" ry="13" fill="#D9782D" opacity=".75"/>
+  </g>
+</svg>
