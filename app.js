@@ -2,9 +2,10 @@ const fruits = [null, '🍓', '🍊', '🍋', '🍇', '🍉', '🥥', '🍍', '�
 const names = ['', 'Strawberry', 'Orange', 'Lemon', 'Grape', 'Watermelon', 'Coconut', 'Pineapple', 'Mango'];
 const targetFruit = fruits.length - 1;
 
-let board = Array(16).fill(0);
+let board = Array(16).fill(null);
 let score = 0;
 let won = false;
+let nextTileId = 1;
 
 const bestKey = 'mangoMergeBest';
 const soundKey = 'mangoMergeSound';
@@ -85,48 +86,110 @@ function sfx(name, level = 1) {
 
 function best(){ return Number(localStorage.getItem(bestKey) || 0); }
 function setBest(v){ localStorage.setItem(bestKey, String(v)); }
-function emptyCells(){ return board.map((v,i)=> v===0 ? i : -1).filter(i=>i>=0); }
+function createTile(value, index, justBorn = true) { return { id: nextTileId++, value, index, justBorn, merged: false }; }
+function boardSignature(cells = board) { return cells.map(tile => tile ? `${tile.id}:${tile.value}` : '0').join(','); }
+function emptyCells(){ return board.map((v,i)=> v === null ? i : -1).filter(i=>i>=0); }
 function addRandomFruit(){
   const cells = emptyCells();
-  if (!cells.length) return;
+  if (!cells.length) return null;
   const idx = cells[Math.floor(Math.random()*cells.length)];
-  board[idx] = Math.random() < 0.86 ? 1 : 2; // mostly strawberries, sometimes oranges
+  const tile = createTile(Math.random() < 0.86 ? 1 : 2, idx, true);
+  board[idx] = tile;
+  return tile;
 }
+
+function ensureBoardScaffold() {
+  if (boardEl.querySelector('.tiles-layer')) return;
+  boardEl.innerHTML = '';
+  for (let i = 0; i < 16; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell bg-cell';
+    cell.setAttribute('aria-hidden', 'true');
+    boardEl.appendChild(cell);
+  }
+  const layer = document.createElement('div');
+  layer.className = 'tiles-layer';
+  boardEl.appendChild(layer);
+}
+
+function positionTile(el, index) {
+  const x = index % 4;
+  const y = Math.floor(index / 4);
+  // Avoid CSS calc multiplication/division so this works in every browser.
+  // With a 12px board gap and 4 columns: tile = 25% - 15px;
+  // positions become 12px, 25%+9px, 50%+6px, 75%+3px.
+  el.style.left = `calc(${x * 25}% + ${12 - (3 * x)}px)`;
+  el.style.top = `calc(${y * 25}% + ${12 - (3 * y)}px)`;
+}
+
+function render(){
+  ensureBoardScaffold();
+  scoreEl.textContent = score;
+  if (score > best()) setBest(score);
+  bestEl.textContent = best();
+
+  const layer = boardEl.querySelector('.tiles-layer');
+  const liveTiles = board.filter(Boolean);
+  const liveIds = new Set(liveTiles.map(tile => String(tile.id)));
+
+  [...layer.querySelectorAll('.tile')].forEach(el => {
+    if (!liveIds.has(el.dataset.id)) el.remove();
+  });
+
+  liveTiles.forEach(tile => {
+    let el = layer.querySelector(`[data-id="${tile.id}"]`);
+    if (!el) {
+      el = document.createElement('div');
+      el.dataset.id = String(tile.id);
+      el.className = 'tile';
+      el.setAttribute('role', 'gridcell');
+      layer.appendChild(el);
+    }
+    el.className = `tile fruit-${tile.value}${tile.justBorn ? ' born' : ''}${tile.merged ? ' merged' : ''}`;
+    el.textContent = fruits[tile.value] || '';
+    el.setAttribute('aria-label', names[tile.value] || 'empty');
+    positionTile(el, tile.index);
+
+    if (tile.justBorn || tile.merged) {
+      window.setTimeout(() => {
+        tile.justBorn = false;
+        tile.merged = false;
+        el.classList.remove('born', 'merged');
+      }, 260);
+    }
+  });
+}
+
 function newGame(playSound = true){
-  board = Array(16).fill(0); score = 0; won = false;
+  board = Array(16).fill(null); score = 0; won = false; nextTileId = 1;
+  ensureBoardScaffold();
+  boardEl.querySelectorAll('.tile').forEach(tile => tile.remove());
   addRandomFruit(); addRandomFruit();
   mangoSpeech.textContent = 'Fresh board! Follow the Discord fruit chain and grow a mango. 🥭';
   catSpeech.textContent = tips[0];
   render();
   if (playSound) sfx('new');
 }
-function render(popIndexes=[]){
-  scoreEl.textContent = score;
-  if (score > best()) setBest(score);
-  bestEl.textContent = best();
-  boardEl.innerHTML = '';
-  board.forEach((v,i)=>{
-    const cell = document.createElement('div');
-    cell.className = 'cell' + (v ? ' filled fruit-' + v : '') + (popIndexes.includes(i) ? ' pop' : '');
-    cell.setAttribute('role','gridcell');
-    cell.setAttribute('aria-label', v ? names[v] : 'empty');
-    cell.textContent = fruits[v] || '';
-    boardEl.appendChild(cell);
-  });
-}
+
 function slideLine(line){
-  const nonzero = line.filter(Boolean);
+  const nonzero = line.filter(Boolean).map(tile => ({ ...tile, justBorn: false, merged: false }));
   const out = [];
   const mergedValues = [];
   let gained = 0;
   let merged = false;
   for (let i=0; i<nonzero.length; i++) {
-    if (nonzero[i] === nonzero[i+1]) {
-      const nv = Math.min(nonzero[i]+1, targetFruit);
-      out.push(nv); gained += nv * 20; merged = true; mergedValues.push(nv); i++;
-    } else out.push(nonzero[i]);
+    if (nonzero[i].value === nonzero[i+1]?.value) {
+      const nv = Math.min(nonzero[i].value + 1, targetFruit);
+      out.push({ ...nonzero[i], value: nv, merged: true });
+      gained += nv * 20;
+      merged = true;
+      mergedValues.push(nv);
+      i++;
+    } else {
+      out.push(nonzero[i]);
+    }
   }
-  while(out.length < 4) out.push(0);
+  while(out.length < 4) out.push(null);
   return { line: out, gained, merged, mergedValues };
 }
 function getLine(dir, n){
@@ -143,19 +206,18 @@ function canMove(){
   if (emptyCells().length) return true;
   for (const dir of ['left','right','up','down']) {
     for (let n=0;n<4;n++) {
-      const idxs = getLine(dir,n), vals = idxs.map(i=>board[i]);
+      const idxs = getLine(dir,n), vals = idxs.map(i=>board[i]?.value || 0);
       for (let i=0;i<3;i++) if (vals[i] && vals[i]===vals[i+1]) return true;
     }
   }
   return false;
 }
 function move(dir){
-  const before = board.join(',');
+  const before = boardSignature();
   let gained = 0;
   let anyMerged = false;
   let biggestMerge = 0;
-  const popIndexes = [];
-  const next = board.slice();
+  const next = Array(16).fill(null);
   for (let n=0;n<4;n++) {
     const idxs = getLine(dir,n);
     const vals = idxs.map(i=>board[i]);
@@ -163,24 +225,23 @@ function move(dir){
     gained += res.gained; anyMerged ||= res.merged;
     biggestMerge = Math.max(biggestMerge, ...res.mergedValues, 0);
     idxs.forEach((idx,k)=> {
-      next[idx]=res.line[k];
-      if (res.mergedValues.includes(res.line[k])) popIndexes.push(idx);
+      if (res.line[k]) next[idx] = { ...res.line[k], index: idx };
     });
   }
   board = next;
-  if (board.join(',') === before) { sfx('invalid'); return; }
+  if (boardSignature() === before) { sfx('invalid'); return; }
   score += gained;
   addRandomFruit();
   if (anyMerged) {
     tipIndex = (tipIndex + 1) % tips.length;
     catSpeech.textContent = tips[tipIndex];
-    mangoSpeech.textContent = gained ? `Cute combo! +${gained} points. ✨` : 'Nice move!';
+    mangoSpeech.textContent = gained ? `Smooth combo! +${gained} points. ✨` : 'Nice move!';
     sfx(biggestMerge >= 6 ? 'bigMerge' : 'merge', biggestMerge);
   } else {
     sfx('move');
   }
-  render(popIndexes);
-  if (!won && board.includes(targetFruit)) {
+  render();
+  if (!won && board.some(tile => tile?.value === targetFruit)) {
     won = true;
     showToast('You made a Mango! You win! 🥭✨');
     mangoSpeech.textContent = 'You made a juicy mango! I’m so proud! 🥭';
@@ -229,7 +290,7 @@ const tutorialTitle = document.getElementById('tutorialTitle');
 const tutorialText = document.getElementById('tutorialText');
 const steps = [
   {who:'Mango says', img:'assets/mango.svg', title:'Welcome to Mango Merge!', text:'I’m Mango! Merge fruits until you make a juicy mango — with sparkly cute sounds!'},
-  {who:'Mango says', img:'assets/mango.svg', title:'Move the whole board', text:'Use arrow keys, WASD, the buttons, or swipe. Every fruit slides together.'},
+  {who:'Mango says', img:'assets/mango.svg', title:'Move the whole board', text:'Use arrow keys, WASD, the buttons, or swipe. Every fruit slides together smoothly.'},
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Meow Tip!', text:'The chain is strawberry → orange → lemon → grape → watermelon → coconut → pineapple → mango.'},
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Cozy corner strategy', text:'Try keeping your biggest fruit in one corner so pineapple and mango combos are easier to plan.'},
   {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Turn sound on, make tiny combos, and let’s merge some fruit!'}
