@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mango Merge</title>
-  <meta name="description" content="A cute pastel fruit merge game with Mango, Kiwi the Cat, and cutesy sound effects." />
-  <link rel="stylesheet" href="styles.css?v=smooth1" />
+  <meta name="description" content="A cute pastel fruit merge game with Mango, Kiwi the Cat, cutesy sounds, and one-time mango powers." />
+  <link rel="stylesheet" href="styles.css?v=powers1" />
 </head>
 <body>
   <div class="orchard-bg" aria-hidden="true"></div>
@@ -38,6 +38,21 @@
           <div class="stat goal"><span>Goal</span><strong>🥭 Mango</strong></div>
         </div>
         <div id="board" class="board" role="grid" aria-label="Fruit merge board"></div>
+        <div class="power-panel" aria-label="One-time mango powers">
+          <button class="power-btn burst" data-power="burst">
+            <strong>🥭💥 Mango Burst</strong>
+            <span>Clear up to 3 tiny fruits</span>
+          </button>
+          <button class="power-btn sprout" data-power="sprout">
+            <strong>🥭🌱 Mango Sprout</strong>
+            <span>Plant a helpful lemon</span>
+          </button>
+          <button class="power-btn ripple" data-power="ripple">
+            <strong>🥭〰️ Mango Ripple</strong>
+            <span>Upgrade matching low fruits</span>
+          </button>
+        </div>
+        <p class="power-note">Each mango power is one-time use per game.</p>
         <div class="mobile-controls" aria-label="Move controls">
           <button data-move="up">↑</button>
           <div><button data-move="left">←</button><button data-move="down">↓</button><button data-move="right">→</button></div>
@@ -49,6 +64,7 @@
         <ol>
           <li>Move all fruits with arrow keys, WASD, buttons, or swipes.</li>
           <li>Two matching fruits merge into the next fruit in the Discord order.</li>
+          <li>Use each Mango power once: Burst clears up to 3 tiny fruits, Sprout plants a lemon, Ripple upgrades low matches.</li>
           <li>Reach 🥭 Mango to win!</li>
         </ol>
         <div class="fruit-chain" aria-label="Fruit merge chain">
@@ -77,6 +93,6 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="app.js?v=smooth1"></script>
+  <script src="app.js?v=powers1"></script>
 </body>
 </html>

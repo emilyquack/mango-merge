@@ -6,6 +6,7 @@ let board = Array(16).fill(null);
 let score = 0;
 let won = false;
 let nextTileId = 1;
+let powers = { burst: false, sprout: false, ripple: false };
 
 const bestKey = 'mangoMergeBest';
 const soundKey = 'mangoMergeSound';
@@ -16,6 +17,7 @@ const toastEl = document.getElementById('toast');
 const mangoSpeech = document.getElementById('mangoSpeech');
 const catSpeech = document.getElementById('catSpeech');
 const soundBtn = document.getElementById('soundBtn');
+const powerBtns = document.querySelectorAll('[data-power]');
 
 const tips = [
   'Meow tip: keep your biggest fruit cozy in a corner. 🐾',
@@ -81,6 +83,7 @@ function sfx(name, level = 1) {
   }
   if (name === 'gameover') { [392, 330, 262].forEach((f, i) => tone(f, .16, 'sine', i * .13, .04)); }
   if (name === 'tutorial') sparkle(740);
+  if (name === 'power') { sparkle(760 + level * 35); tone(988, .18, 'triangle', .12, .045); }
   if (name === 'close') { tone(784, .07, 'triangle', 0, .035); tone(523, .10, 'sine', .07, .03); }
 }
 
@@ -89,6 +92,21 @@ function setBest(v){ localStorage.setItem(bestKey, String(v)); }
 function createTile(value, index, justBorn = true) { return { id: nextTileId++, value, index, justBorn, merged: false }; }
 function boardSignature(cells = board) { return cells.map(tile => tile ? `${tile.id}:${tile.value}` : '0').join(','); }
 function emptyCells(){ return board.map((v,i)=> v === null ? i : -1).filter(i=>i>=0); }
+function tileCount(){ return board.filter(Boolean).length; }
+function updatePowerButtons(){
+  powerBtns.forEach(btn => {
+    const used = powers[btn.dataset.power];
+    btn.disabled = used;
+    btn.classList.toggle('used', used);
+    btn.setAttribute('aria-label', `${btn.textContent.trim()} — ${used ? 'used' : 'one-time use available'}`);
+  });
+}
+function pulseBoard(effect){
+  boardEl.classList.remove('burst-effect', 'sprout-effect', 'ripple-effect');
+  void boardEl.offsetWidth;
+  boardEl.classList.add(`${effect}-effect`);
+  window.setTimeout(() => boardEl.classList.remove(`${effect}-effect`), 760);
+}
 function addRandomFruit(){
   const cells = emptyCells();
   if (!cells.length) return null;
@@ -124,6 +142,7 @@ function positionTile(el, index) {
 
 function render(){
   ensureBoardScaffold();
+  updatePowerButtons();
   scoreEl.textContent = score;
   if (score > best()) setBest(score);
   bestEl.textContent = best();
@@ -162,6 +181,7 @@ function render(){
 
 function newGame(playSound = true){
   board = Array(16).fill(null); score = 0; won = false; nextTileId = 1;
+  powers = { burst: false, sprout: false, ripple: false };
   ensureBoardScaffold();
   boardEl.querySelectorAll('.tile').forEach(tile => tile.remove());
   addRandomFruit(); addRandomFruit();
@@ -241,6 +261,15 @@ function move(dir){
     sfx('move');
   }
   render();
+  checkGameEnd();
+}
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.remove('hidden');
+  setTimeout(()=>toastEl.classList.add('hidden'), 2600);
+}
+
+function checkGameEnd(){
   if (!won && board.some(tile => tile?.value === targetFruit)) {
     won = true;
     showToast('You made a Mango! You win! 🥭✨');
@@ -252,10 +281,72 @@ function move(dir){
     sfx('gameover');
   }
 }
-function showToast(msg){
-  toastEl.textContent = msg;
-  toastEl.classList.remove('hidden');
-  setTimeout(()=>toastEl.classList.add('hidden'), 2600);
+
+function usePower(type){
+  initAudio();
+  if (powers[type]) { sfx('invalid'); showToast('That mango power was already used!'); return; }
+  let changed = false;
+  let bonus = 0;
+
+  if (type === 'burst') {
+    const targets = board
+      .map((tile, index) => tile ? { tile, index } : null)
+      .filter(Boolean)
+      .sort((a, b) => a.tile.value - b.tile.value || a.index - b.index);
+    const removeCount = Math.min(3, Math.max(0, targets.length - 1));
+    if (removeCount < 1) { sfx('invalid'); showToast('Mango Burst needs at least 2 fruits.'); return; }
+    targets.slice(0, removeCount).forEach(({ tile, index }) => { bonus += tile.value * 8; board[index] = null; });
+    mangoSpeech.textContent = 'Mango Burst cleared your smallest fruits! 🥭💥';
+    catSpeech.textContent = 'Meow tip: burst is perfect when tiny fruits are blocking your corner. 🐾';
+    pulseBoard('burst');
+    changed = true;
+  }
+
+  if (type === 'sprout') {
+    const cells = emptyCells();
+    if (cells.length) {
+      const centerFirst = cells.sort((a, b) => Math.abs((a % 4) - 1.5) + Math.abs(Math.floor(a / 4) - 1.5) - (Math.abs((b % 4) - 1.5) + Math.abs(Math.floor(b / 4) - 1.5)));
+      const idx = centerFirst[0];
+      board[idx] = createTile(3, idx, true); // lemon sprout
+      mangoSpeech.textContent = 'Mango Sprout planted a sunny lemon! 🥭🌱🍋';
+    } else {
+      const targetIndex = board
+        .map((tile, index) => ({ tile, index }))
+        .sort((a, b) => a.tile.value - b.tile.value || a.index - b.index)[0]?.index;
+      if (targetIndex === undefined) { sfx('invalid'); return; }
+      board[targetIndex] = { ...board[targetIndex], value: Math.min(board[targetIndex].value + 1, targetFruit), merged: true };
+      mangoSpeech.textContent = 'Mango Sprout upgraded a tiny fruit because the board was full! 🥭🌱';
+    }
+    catSpeech.textContent = 'Meow tip: sprout gives you one helpful boost, so save it for a crowded board.';
+    bonus = 30;
+    pulseBoard('sprout');
+    changed = true;
+  }
+
+  if (type === 'ripple') {
+    const values = board.filter(Boolean).map(tile => tile.value).filter(value => value < targetFruit);
+    if (!values.length) { sfx('invalid'); return; }
+    const rippleValue = Math.min(...values);
+    let upgraded = 0;
+    board = board.map(tile => {
+      if (!tile || tile.value !== rippleValue || upgraded >= 6) return tile;
+      upgraded += 1;
+      return { ...tile, value: Math.min(tile.value + 1, targetFruit), merged: true };
+    });
+    bonus = upgraded * (rippleValue + 1) * 10;
+    mangoSpeech.textContent = `Mango Ripple upgraded ${upgraded} ${names[rippleValue].toLowerCase()} fruit${upgraded === 1 ? '' : 's'}! 🥭〰️`;
+    catSpeech.textContent = 'Meow tip: ripple is strongest when lots of small matching fruits are on the board.';
+    pulseBoard('ripple');
+    changed = true;
+  }
+
+  if (!changed) return;
+  powers[type] = true;
+  score += bonus;
+  showToast(`${type === 'burst' ? 'Mango Burst' : type === 'sprout' ? 'Mango Sprout' : 'Mango Ripple'} used — one time only!`);
+  sfx('power', type === 'burst' ? 2 : type === 'sprout' ? 4 : 6);
+  render();
+  checkGameEnd();
 }
 
 document.addEventListener('keydown', e=>{
@@ -264,6 +355,7 @@ document.addEventListener('keydown', e=>{
   if (dir) { e.preventDefault(); initAudio(); move(dir); }
 });
 document.querySelectorAll('[data-move]').forEach(btn => btn.addEventListener('click', () => { initAudio(); move(btn.dataset.move); }));
+powerBtns.forEach(btn => btn.addEventListener('click', () => usePower(btn.dataset.power)));
 document.getElementById('newGameBtn').addEventListener('click', () => { initAudio(); newGame(true); });
 soundBtn.addEventListener('click', () => {
   soundEnabled = !soundEnabled;
@@ -293,7 +385,8 @@ const steps = [
   {who:'Mango says', img:'assets/mango.svg', title:'Move the whole board', text:'Use arrow keys, WASD, the buttons, or swipe. Every fruit slides together smoothly.'},
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Meow Tip!', text:'The chain is strawberry → orange → lemon → grape → watermelon → coconut → pineapple → mango.'},
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Cozy corner strategy', text:'Try keeping your biggest fruit in one corner so pineapple and mango combos are easier to plan.'},
-  {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Turn sound on, make tiny combos, and let’s merge some fruit!'}
+  {who:'Mango says', img:'assets/mango.svg', title:'One-time mango powers', text:'Use Burst to clear tiny fruits, Sprout to plant a lemon, and Ripple to upgrade matching low fruits. Each power works once per game!'},
+  {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Turn sound on, make tiny combos, save your powers for tricky moments, and let’s merge some fruit!'}
 ];
 let step = 0;
 function openTutorial(){ initAudio(); sfx('tutorial'); step=0; tutorial.classList.remove('hidden'); renderStep(); }
