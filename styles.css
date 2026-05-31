@@ -159,9 +159,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .power-btn.sprout { background: linear-gradient(180deg, #ecffd8, #a9eb8d); }
 .power-btn.ripple { background: linear-gradient(180deg, #e8fbff, #9deaff); }
 .power-btn.used { filter: grayscale(.25); opacity: .48; text-decoration: line-through; }
+.power-btn.locked { opacity: .58; filter: saturate(.72); }
 .power-note { margin: 8px 3px 0; text-align:center; color:#5f7740; font-size: 12px; font-weight: 900; }
 .mobile-controls { display:none; text-align:center; margin-top: 14px; }
 .mobile-controls button { margin: 4px; width: 54px; height: 46px; border-radius: 16px; background:#fff7ce; color:#5d7438; font-size: 24px; font-weight:900; border:2px solid #ead16d; }
+.mobile-controls button:disabled { background:#edf3d6; color:#91a176; border-color:#cad8b5; }
 .guide-card { padding: 20px; }
 .guide-card h2 { margin: 0 0 10px; color: var(--leaf-dark); font-size: 28px; }
 ol { padding-left: 22px; line-height: 1.55; font-weight: 700; }

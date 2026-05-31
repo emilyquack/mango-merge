@@ -18,6 +18,7 @@ const mangoSpeech = document.getElementById('mangoSpeech');
 const catSpeech = document.getElementById('catSpeech');
 const soundBtn = document.getElementById('soundBtn');
 const powerBtns = document.querySelectorAll('[data-power]');
+const moveBtns = document.querySelectorAll('[data-move]');
 
 const tips = [
   'Meow tip: keep your biggest fruit cozy in a corner. 🐾',
@@ -93,12 +94,20 @@ function createTile(value, index, justBorn = true) { return { id: nextTileId++, 
 function boardSignature(cells = board) { return cells.map(tile => tile ? `${tile.id}:${tile.value}` : '0').join(','); }
 function emptyCells(){ return board.map((v,i)=> v === null ? i : -1).filter(i=>i>=0); }
 function tileCount(){ return board.filter(Boolean).length; }
+function gameWon(){ return board.some(tile => tile?.value === targetFruit); }
+function updateMoveButtons(){
+  moveBtns.forEach(btn => {
+    btn.disabled = won;
+    btn.setAttribute('aria-label', won ? 'Game complete — start a new game to move again' : `Move ${btn.dataset.move}`);
+  });
+}
 function updatePowerButtons(){
   powerBtns.forEach(btn => {
     const used = powers[btn.dataset.power];
-    btn.disabled = used;
+    btn.disabled = used || won;
     btn.classList.toggle('used', used);
-    btn.setAttribute('aria-label', `${btn.textContent.trim()} — ${used ? 'used' : 'one-time use available'}`);
+    btn.classList.toggle('locked', won && !used);
+    btn.setAttribute('aria-label', `${btn.textContent.trim()} — ${won ? 'locked because mango was made' : used ? 'used' : 'one-time use available'}`);
   });
 }
 function pulseBoard(effect){
@@ -143,6 +152,7 @@ function positionTile(el, index) {
 function render(){
   ensureBoardScaffold();
   updatePowerButtons();
+  updateMoveButtons();
   scoreEl.textContent = score;
   if (score > best()) setBest(score);
   bestEl.textContent = best();
@@ -233,6 +243,10 @@ function canMove(){
   return false;
 }
 function move(dir){
+  if (won) {
+    showToast('Mango complete! Press New Game to play again. 🥭');
+    return;
+  }
   const before = boardSignature();
   let gained = 0;
   let anyMerged = false;
@@ -251,7 +265,8 @@ function move(dir){
   board = next;
   if (boardSignature() === before) { sfx('invalid'); return; }
   score += gained;
-  addRandomFruit();
+  const reachedMango = gameWon();
+  if (!reachedMango) addRandomFruit();
   if (anyMerged) {
     tipIndex = (tipIndex + 1) % tips.length;
     catSpeech.textContent = tips[tipIndex];
@@ -270,11 +285,12 @@ function showToast(msg){
 }
 
 function checkGameEnd(){
-  if (!won && board.some(tile => tile?.value === targetFruit)) {
+  if (!won && gameWon()) {
     won = true;
-    showToast('You made a Mango! You win! 🥭✨');
-    mangoSpeech.textContent = 'You made a juicy mango! I’m so proud! 🥭';
+    showToast('You made a Mango! Game complete! 🥭✨');
+    mangoSpeech.textContent = 'You made a juicy mango! Game complete — press New Game to play again. 🥭';
     sfx('win');
+    render();
   } else if (!canMove()) {
     showToast('No more moves — try a fresh orchard!');
     mangoSpeech.textContent = 'That orchard is full! New game?';
@@ -284,6 +300,7 @@ function checkGameEnd(){
 
 function usePower(type){
   initAudio();
+  if (won) { showToast('Mango complete! Powers reset on New Game. 🥭'); sfx('invalid'); return; }
   if (powers[type]) { sfx('invalid'); showToast('That mango power was already used!'); return; }
   let changed = false;
   let bonus = 0;
@@ -354,9 +371,36 @@ document.addEventListener('keydown', e=>{
   const dir = map[e.key];
   if (dir) { e.preventDefault(); initAudio(); move(dir); }
 });
-document.querySelectorAll('[data-move]').forEach(btn => btn.addEventListener('click', () => { initAudio(); move(btn.dataset.move); }));
+moveBtns.forEach(btn => btn.addEventListener('click', () => { initAudio(); move(btn.dataset.move); }));
 powerBtns.forEach(btn => btn.addEventListener('click', () => usePower(btn.dataset.power)));
 document.getElementById('newGameBtn').addEventListener('click', () => { initAudio(); newGame(true); });
+
+// Lightweight browser smoke-test hook. It only appears when a URL has ?test=...,
+// so the public game stays clean for normal players.
+if (new URLSearchParams(window.location.search).has('test')) {
+  window.__mangoMergeTest = {
+    setBoard(values) {
+      board = Array(16).fill(null);
+      score = 0; won = false; nextTileId = 1;
+      powers = { burst: false, sprout: false, ripple: false };
+      values.forEach((value, index) => {
+        if (value) board[index] = createTile(value, index, false);
+      });
+      render();
+    },
+    snapshot() {
+      return {
+        sig: boardSignature(),
+        won,
+        mangoCount: board.filter(tile => tile?.value === targetFruit).length,
+        moveDisabled: [...moveBtns].every(btn => btn.disabled),
+        powersDisabled: [...powerBtns].every(btn => btn.disabled),
+        speech: mangoSpeech.textContent,
+        toast: toastEl.textContent,
+      };
+    }
+  };
+}
 soundBtn.addEventListener('click', () => {
   soundEnabled = !soundEnabled;
   localStorage.setItem(soundKey, soundEnabled ? 'on' : 'off');
@@ -386,7 +430,7 @@ const steps = [
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Meow Tip!', text:'The chain is strawberry → orange → lemon → grape → watermelon → coconut → pineapple → mango.'},
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Cozy corner strategy', text:'Try keeping your biggest fruit in one corner so pineapple and mango combos are easier to plan.'},
   {who:'Mango says', img:'assets/mango.svg', title:'One-time mango powers', text:'Use Burst to clear tiny fruits, Sprout to plant a lemon, and Ripple to upgrade matching low fruits. Each power works once per game!'},
-  {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Turn sound on, make tiny combos, save your powers for tricky moments, and let’s merge some fruit!'}
+  {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Turn sound on, make tiny combos, save your powers for tricky moments, and reach mango to finish the game!'}
 ];
 let step = 0;
 function openTutorial(){ initAudio(); sfx('tutorial'); step=0; tutorial.classList.remove('hidden'); renderStep(); }
