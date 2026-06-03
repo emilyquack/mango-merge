@@ -5,6 +5,7 @@ const targetFruit = fruits.length - 1;
 let board = Array(16).fill(null);
 let score = 0;
 let won = false;
+let gameEnded = false;
 let nextTileId = 1;
 let powers = { burst: false, sprout: false, ripple: false };
 
@@ -93,29 +94,31 @@ function setBest(v){ localStorage.setItem(bestKey, String(v)); }
 function createTile(value, index, justBorn = true) { return { id: nextTileId++, value, index, justBorn, merged: false }; }
 function boardSignature(cells = board) { return cells.map(tile => tile ? `${tile.id}:${tile.value}` : '0').join(','); }
 function emptyCells(){ return board.map((v,i)=> v === null ? i : -1).filter(i=>i>=0); }
-function tileCount(){ return board.filter(Boolean).length; }
-function gameWon(){ return board.some(tile => tile?.value === targetFruit); }
+
 function updateMoveButtons(){
   moveBtns.forEach(btn => {
-    btn.disabled = won;
-    btn.setAttribute('aria-label', won ? 'Game complete — start a new game to move again' : `Move ${btn.dataset.move}`);
+    btn.disabled = gameEnded;
+    btn.setAttribute('aria-label', gameEnded ? 'Game finished — press New Game to move again' : `Move ${btn.dataset.move}`);
   });
 }
+
 function updatePowerButtons(){
   powerBtns.forEach(btn => {
     const used = powers[btn.dataset.power];
-    btn.disabled = used || won;
+    btn.disabled = used || gameEnded;
     btn.classList.toggle('used', used);
-    btn.classList.toggle('locked', won && !used);
-    btn.setAttribute('aria-label', `${btn.textContent.trim()} — ${won ? 'locked because mango was made' : used ? 'used' : 'one-time use available'}`);
+    btn.classList.toggle('locked', gameEnded && !used);
+    btn.setAttribute('aria-label', `${btn.textContent.trim()} — ${gameEnded ? 'locked because the game is finished' : used ? 'used' : 'one-time use available'}`);
   });
 }
+
 function pulseBoard(effect){
   boardEl.classList.remove('burst-effect', 'sprout-effect', 'ripple-effect');
   void boardEl.offsetWidth;
   boardEl.classList.add(`${effect}-effect`);
   window.setTimeout(() => boardEl.classList.remove(`${effect}-effect`), 760);
 }
+
 function addRandomFruit(){
   const cells = emptyCells();
   if (!cells.length) return null;
@@ -142,9 +145,6 @@ function ensureBoardScaffold() {
 function positionTile(el, index) {
   const x = index % 4;
   const y = Math.floor(index / 4);
-  // Avoid CSS calc multiplication/division so this works in every browser.
-  // With a 12px board gap and 4 columns: tile = 25% - 15px;
-  // positions become 12px, 25%+9px, 50%+6px, 75%+3px.
   el.style.left = `calc(${x * 25}% + ${12 - (3 * x)}px)`;
   el.style.top = `calc(${y * 25}% + ${12 - (3 * y)}px)`;
 }
@@ -190,12 +190,12 @@ function render(){
 }
 
 function newGame(playSound = true){
-  board = Array(16).fill(null); score = 0; won = false; nextTileId = 1;
+  board = Array(16).fill(null); score = 0; won = false; gameEnded = false; nextTileId = 1;
   powers = { burst: false, sprout: false, ripple: false };
   ensureBoardScaffold();
   boardEl.querySelectorAll('.tile').forEach(tile => tile.remove());
   addRandomFruit(); addRandomFruit();
-  mangoSpeech.textContent = 'Fresh board! Follow the Discord fruit chain and grow a mango. 🥭';
+  mangoSpeech.textContent = 'Fresh board! Make a mango to finish the game. 🥭';
   catSpeech.textContent = tips[0];
   render();
   if (playSound) sfx('new');
@@ -222,6 +222,7 @@ function slideLine(line){
   while(out.length < 4) out.push(null);
   return { line: out, gained, merged, mergedValues };
 }
+
 function getLine(dir, n){
   const arr = [];
   for (let i=0;i<4;i++) {
@@ -232,6 +233,7 @@ function getLine(dir, n){
   }
   return arr;
 }
+
 function canMove(){
   if (emptyCells().length) return true;
   for (const dir of ['left','right','up','down']) {
@@ -242,16 +244,20 @@ function canMove(){
   }
   return false;
 }
+
 function move(dir){
-  if (won) {
-    showToast('Mango complete! Press New Game to play again. 🥭');
+  if (gameEnded) {
+    sfx('invalid');
+    showToast('This orchard is finished — start a New Game! 🥭');
     return;
   }
+
   const before = boardSignature();
   let gained = 0;
   let anyMerged = false;
   let biggestMerge = 0;
   const next = Array(16).fill(null);
+
   for (let n=0;n<4;n++) {
     const idxs = getLine(dir,n);
     const vals = idxs.map(i=>board[i]);
@@ -262,11 +268,15 @@ function move(dir){
       if (res.line[k]) next[idx] = { ...res.line[k], index: idx };
     });
   }
+
   board = next;
   if (boardSignature() === before) { sfx('invalid'); return; }
+
   score += gained;
-  const reachedMango = gameWon();
-  if (!reachedMango) addRandomFruit();
+  const madeMango = board.some(tile => tile?.value === targetFruit);
+  // Keep Mango as the finish line: do not spawn another random fruit after winning.
+  if (!madeMango) addRandomFruit();
+
   if (anyMerged) {
     tipIndex = (tipIndex + 1) % tips.length;
     catSpeech.textContent = tips[tipIndex];
@@ -275,9 +285,11 @@ function move(dir){
   } else {
     sfx('move');
   }
+
   render();
   checkGameEnd();
 }
+
 function showToast(msg){
   toastEl.textContent = msg;
   toastEl.classList.remove('hidden');
@@ -285,23 +297,27 @@ function showToast(msg){
 }
 
 function checkGameEnd(){
-  if (!won && gameWon()) {
+  if (!won && board.some(tile => tile?.value === targetFruit)) {
     won = true;
+    gameEnded = true;
     showToast('You made a Mango! Game complete! 🥭✨');
     mangoSpeech.textContent = 'You made a juicy mango! Game complete — press New Game to play again. 🥭';
     sfx('win');
     render();
   } else if (!canMove()) {
+    gameEnded = true;
     showToast('No more moves — try a fresh orchard!');
-    mangoSpeech.textContent = 'That orchard is full! New game?';
+    mangoSpeech.textContent = 'No more moves — game over! Press New Game for a quick fresh orchard.';
     sfx('gameover');
+    render();
   }
 }
 
 function usePower(type){
   initAudio();
-  if (won) { showToast('Mango complete! Powers reset on New Game. 🥭'); sfx('invalid'); return; }
+  if (gameEnded) { sfx('invalid'); showToast('This orchard is finished — start a New Game! 🥭'); return; }
   if (powers[type]) { sfx('invalid'); showToast('That mango power was already used!'); return; }
+
   let changed = false;
   let bonus = 0;
 
@@ -324,11 +340,12 @@ function usePower(type){
     if (cells.length) {
       const centerFirst = cells.sort((a, b) => Math.abs((a % 4) - 1.5) + Math.abs(Math.floor(a / 4) - 1.5) - (Math.abs((b % 4) - 1.5) + Math.abs(Math.floor(b / 4) - 1.5)));
       const idx = centerFirst[0];
-      board[idx] = createTile(3, idx, true); // lemon sprout
+      board[idx] = createTile(3, idx, true);
       mangoSpeech.textContent = 'Mango Sprout planted a sunny lemon! 🥭🌱🍋';
     } else {
       const targetIndex = board
         .map((tile, index) => ({ tile, index }))
+        .filter(({tile}) => tile.value < targetFruit)
         .sort((a, b) => a.tile.value - b.tile.value || a.index - b.index)[0]?.index;
       if (targetIndex === undefined) { sfx('invalid'); return; }
       board[targetIndex] = { ...board[targetIndex], value: Math.min(board[targetIndex].value + 1, targetFruit), merged: true };
@@ -374,33 +391,6 @@ document.addEventListener('keydown', e=>{
 moveBtns.forEach(btn => btn.addEventListener('click', () => { initAudio(); move(btn.dataset.move); }));
 powerBtns.forEach(btn => btn.addEventListener('click', () => usePower(btn.dataset.power)));
 document.getElementById('newGameBtn').addEventListener('click', () => { initAudio(); newGame(true); });
-
-// Lightweight browser smoke-test hook. It only appears when a URL has ?test=...,
-// so the public game stays clean for normal players.
-if (new URLSearchParams(window.location.search).has('test')) {
-  window.__mangoMergeTest = {
-    setBoard(values) {
-      board = Array(16).fill(null);
-      score = 0; won = false; nextTileId = 1;
-      powers = { burst: false, sprout: false, ripple: false };
-      values.forEach((value, index) => {
-        if (value) board[index] = createTile(value, index, false);
-      });
-      render();
-    },
-    snapshot() {
-      return {
-        sig: boardSignature(),
-        won,
-        mangoCount: board.filter(tile => tile?.value === targetFruit).length,
-        moveDisabled: [...moveBtns].every(btn => btn.disabled),
-        powersDisabled: [...powerBtns].every(btn => btn.disabled),
-        speech: mangoSpeech.textContent,
-        toast: toastEl.textContent,
-      };
-    }
-  };
-}
 soundBtn.addEventListener('click', () => {
   soundEnabled = !soundEnabled;
   localStorage.setItem(soundKey, soundEnabled ? 'on' : 'off');
@@ -409,7 +399,7 @@ soundBtn.addEventListener('click', () => {
 });
 
 let touchStart = null;
-boardEl.addEventListener('pointerdown', e => { touchStart = {x:e.clientX, y:e.clientY}; });
+boardEl.addEventListener('pointerdown', e => { if (!gameEnded) touchStart = {x:e.clientX, y:e.clientY}; });
 boardEl.addEventListener('pointerup', e => {
   if (!touchStart) return;
   const dx=e.clientX-touchStart.x, dy=e.clientY-touchStart.y;
@@ -430,7 +420,7 @@ const steps = [
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Meow Tip!', text:'The chain is strawberry → orange → lemon → grape → watermelon → coconut → pineapple → mango.'},
   {who:'Kiwi the Cat says', img:'assets/kiwi-cat.svg', title:'Cozy corner strategy', text:'Try keeping your biggest fruit in one corner so pineapple and mango combos are easier to plan.'},
   {who:'Mango says', img:'assets/mango.svg', title:'One-time mango powers', text:'Use Burst to clear tiny fruits, Sprout to plant a lemon, and Ripple to upgrade matching low fruits. Each power works once per game!'},
-  {who:'Mango says', img:'assets/mango.svg', title:'Ready?', text:'That’s it. Turn sound on, make tiny combos, save your powers for tricky moments, and reach mango to finish the game!'}
+  {who:'Mango says', img:'assets/mango.svg', title:'Short and sweet!', text:'The game stops as soon as you make Mango or run out of moves. Press New Game for another quick orchard.'}
 ];
 let step = 0;
 function openTutorial(){ initAudio(); sfx('tutorial'); step=0; tutorial.classList.remove('hidden'); renderStep(); }
@@ -445,6 +435,23 @@ document.getElementById('closeTutorial').addEventListener('click', closeTutorial
 document.getElementById('prevStep').addEventListener('click', ()=>{ if(step>0){ sfx('button'); step--; renderStep();} else sfx('invalid'); });
 document.getElementById('nextStep').addEventListener('click', ()=>{ if(step<steps.length-1){ sfx('button'); step++; renderStep();} else closeTutorial(); });
 
+function exposeTestHooks(){
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('test')) return;
+  window.mangoMergeTest = {
+    setBoard(values) {
+      board = values.map((value, index) => value ? createTile(value, index, false) : null);
+      won = false; gameEnded = false; powers = { burst: false, sprout: false, ripple: false };
+      render();
+    },
+    move,
+    usePower,
+    checkGameEnd,
+    state() { return { values: board.map(tile => tile?.value || 0), tileCount: board.filter(Boolean).length, score, won, gameEnded, powers: {...powers} }; }
+  };
+}
+
 updateSoundButton();
 newGame(false);
+exposeTestHooks();
 if (!localStorage.getItem('mangoMergeTutorialSeen')) setTimeout(() => { step=0; tutorial.classList.remove('hidden'); renderStep(); }, 450);
