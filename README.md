@@ -2,8 +2,6 @@
 
 A cute pastel fruit merge web game with Mango and Kiwi the Cat.
 
-Open: http://localhost:5173
-
 ## Controls
 
 - Arrow keys or WASD
