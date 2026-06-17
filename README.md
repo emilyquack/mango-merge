@@ -2,13 +2,6 @@
 
 A cute pastel fruit merge web game with Mango and Kiwi the Cat.
 
-## Run locally
-
-```bash
-cd ~/workspace/mango-merge-public
-python3 -m http.server 5173
-```
-
 Open: http://localhost:5173
 
 ## Controls
